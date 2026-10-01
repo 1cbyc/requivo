@@ -12,6 +12,291 @@ fragments in `changelog.d/` are the material to summarize from.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-01
+
+### Highlights
+
+- Requivo reasons in more than one perimeter: a first `discover` routes a request to software scoping or go-to-market planning, and `gtm_plan` is the go-to-market document.
+- A first discovery judges its own grounding before it reasons: which installed context card describes the request's domain, or that none does.
+- The model carries exclusions and decision thresholds as reasoning items, re-opened through `requivo impact` when a slot they rest on moves; `testable` joins the confidence levels.
+- Every model call streams, so a reply longer than a minute survives a VPN or proxy that cuts idle connections.
+- An apply writes its revision and its stale flags in one write, and `session import` refuses a damaged archive instead of ending in a traceback.
+- The experimental HTTP API completes its planned slices (`docs/api.md`), and the Claude Code plugin gains `/requivo:demo`.
+
+### Added
+
+- The event check-in example now shows an estimate (#232): `examples/event-checkin-reconciliation/estimate.md` is the captured terminal output of `requivo estimate` against the example's model, with a day range per task, the low–high total and the line naming the unresolved slots that drive the spread, listed as step 7 of the example with the same note that a fresh run differs.
+
+- The experimental HTTP API gains its last two planned slices, still unfrozen (#425): `POST /api/v1/sessions/{slug}/artifacts/estimate` now answers the estimate and the stories saved beside it instead of a 500 after both paid calls had landed; the OpenAPI document declares the true statuses (201 on a fresh session, the shared error envelope under 4XX/5XX, no 422 the app never sends) and is pinned route by route; and `docs/api.md` documents serving, the token, the cross-site posture, every route with its backing service method, and the recovery semantics, held to the live app by `tests/api/test_api_openapi.py`.
+
+- A first `requivo discover` with no `--context` now **judges its own grounding** before it reasons:
+  one cheap provider call asks whether any installed context card actually describes the request's
+  domain, and the answer is one of four things a reader can act on — nobody looked, nothing special
+  applies, these cards describe it, or nothing installed does. Impact is estimated against those
+  cards, so a request scored against an unrelated product produced plausible questions about the
+  wrong things and said nothing about it (#593).
+- When the verdict names installed cards, the session is re-claimed under that narrower selection,
+  so it records and reasons against the cards that actually describe its domain rather than every
+  installed one (#593).
+- Cost: a first discovery with no `--context` now makes **two** provider calls rather than one. The
+  judgment carries neither the slot schema nor the context cards, so it is a few hundred tokens
+  rather than a share of the ~9k shared prefix; a discovery that passes `--context` makes no
+  judgment call at all, because an explicit selection is a decision the engine does not second-guess
+  (#593).
+
+- The model can now carry a rejected option as a first-class item: `exclusions`, a fourth
+  reasoning collection alongside decisions, challenges and opportunities. Each exclusion names the
+  option, why it lost, and the slot(s) it rests on — the same DAG edge a design decision's
+  `derived_from` is — so a slot moving re-opens the exclusion for reconsideration through
+  `propagate()`, and `requivo impact` shows it beside decisions and challenges (#599).
+- The saved decision brief's **Out of scope** section is a projection of those excluded options,
+  read straight off the model, the same split `brief_markdown` already draws for "What is
+  confirmed" and "Important assumptions" — a restatement can drift from the model it restates, a
+  projection cannot (#599).
+- Like its three siblings, `exclusions` is tri-state on a proposal (an omitted key leaves the
+  established ones standing, `[]` deletes them, a list replaces them) and carries a content-derived
+  id recomputed on every validation (#599).
+- Populating exclusions from a generator is a separate change (#600); this one only gives the
+  answer somewhere to live.
+
+- A first `requivo discover` with no explicit `--perimeter` now **routes**: one cheap provider call
+  judges which installed perimeter — software scoping, go-to-market planning — the request's shape
+  actually belongs to, before any model is reasoned. Three outcomes: one perimeter clearly fits (the
+  session is re-claimed under it, and the verdict is shown before it grounds anything); more than
+  one plausibly fits (interactively, this asks which one, one question rather than a guess; on
+  `--once` or with no terminal to ask at, it refuses instead, naming the candidates to choose
+  between with `--perimeter`); none clearly fits (a real answer, not a failure — the session
+  continues under the default perimeter, named rather than silently assumed) (#601).
+- An explicit `--perimeter` is never second-guessed: the router is not consulted at all, the
+  identical rule an explicit `--context` already holds for the grounding judgment (#593).
+- Cost: a first discovery with no `--context` and no `--perimeter` now makes **three** provider
+  calls rather than two (the routing judgment, the grounding judgment, then the turn); the
+  `uncovered`-grounding path, which also writes a missing context card, makes four. An install with
+  only one perimeter, or a provider that cannot route, is never asked and costs nothing extra;
+  answering an ambiguous verdict interactively costs no second routing call either (#601).
+
+- The Claude Code plugin gains `/requivo:demo`, which replays the bundled run (`requivo demo`: no key, no network, no session, nothing written) and ends on the change-impact beat, what a changed answer makes stale; the plugin README names it as the first thing to try, before `/requivo:run` (#602).
+
+- The PRD now states the resource envelope it planned within — budget, deadline, capacity, horizon
+  — as a structured `envelope` field, with each element naming its own origin: read off the model
+  (naming the slot, almost always `constraints`) or assumed by the generator when the plan needed
+  one and the model said nothing. A model with no constraint content produces an empty envelope
+  rather than an invented one, and the rendered section shows each element's provenance in plain
+  English, never a slot id or a confidence label — a contradiction between a plan and the envelope
+  it assumed is now visible in one line instead of requiring a reader to re-derive it (#603).
+- Deliberately narrow: this is a stated envelope, not a check that the rest of the PRD actually fits
+  it — see #603 for why that check is gated on this one first. Also owed: a full golden re-capture,
+  since `prd.md` moved.
+
+- The model can now carry a decision threshold — "at X, do Y" — as a fifth reasoning collection
+  alongside decisions, challenges, opportunities and exclusions. Each threshold names the
+  condition, the measure it reads, the action when it fires, and the slot(s) it rests on — the
+  same DAG edge a design decision's `derived_from` is — so a slot moving re-opens the threshold
+  for reconsideration through `propagate()`, and `requivo impact` shows it beside decisions,
+  challenges and exclusions. Not domain-specific: a vendor rate limit, a cost ceiling and a
+  payback horizon are all the same object (#604).
+- Like its four siblings, `thresholds` is tri-state on a proposal (an omitted key leaves the
+  established ones standing, `[]` deletes them, a list replaces them) and carries a
+  content-derived id recomputed on every validation. Unlike `exclusions`, `rests_on` is required
+  and non-empty: a condition with no action, or no slot it rests on, is refused as an objection
+  with nowhere to go — the same rule `Challenge`'s five required parts already enforce (#604).
+- `brief.md` learned to populate `thresholds` the same way #600 taught it to populate
+  `exclusions`, and the saved decision brief's **Decision thresholds** section is a projection of
+  those thresholds, read straight off the model (#604).
+- Requivo Web's "What changed" panel names any threshold a change unseats, the same way it
+  already names decisions, assumptions and excluded options — so an answer that unseats only a
+  threshold no longer reads as nothing to review (#604).
+
+- Added the perimeter mechanism (#608): `framework/model_schema.json` and `elicitation.md` are now
+  per-perimeter data under `assets/perimeters/<id>/`, and a session's perimeter joins its identity —
+  frozen at `create_session` alongside the request and the card selection, visible in `requivo
+  status --json` and `session show --json`. A slot id valid in one perimeter is refused in the
+  other, everywhere the vocabulary is checked: the model, a `Question.slot`, and every DAG edge
+  (`derived_from`, `contests`, `rests_on`). `requivo impact` and readiness reason over the session's
+  own vocabulary only.
+- Added the go-to-market perimeter (#608, #609): twelve slots (`objective`, `success_metric`, `icp`,
+  `existing_distribution`, `offer`, `channels`, `unit_economics`, `capacity`, `budget`, `horizon`,
+  `instrumentation`, `decision_thresholds`) with `capacity` as the binding constraint, its own
+  `elicitation.md`, and its own discovery guidance substituted into `engine.md`'s
+  `{{PERIMETER_GUIDANCE}}` — the software-only "primary objects first" heuristic no longer reaches a
+  go-to-market session. It ships no artifact yet; that is #609's own scope.
+- Added `--perimeter` to `requivo discover` (default `software`) and `--perimeter` to `requivo
+  schema`, and `requivo doctor` now reports the installed perimeters the way it already reports
+  context cards.
+- Added the deliberate inversion of invariant 8 for this one field: a session naming a perimeter
+  this install does not have is refused **by name** (`unknown_perimeter`), by the loader, `doctor`
+  and `session verify` alike — never tolerated or defaulted, because a perimeter is interpreted
+  rather than carried through. A session with no `perimeter` recorded at all (every session written
+  before #608) still opens, reading as the software perimeter — a default, not a guess, since there
+  was only ever one.
+
+- Added `gtm_plan` (#609), the go-to-market perimeter's one artifact per #607's cost rule —
+  `requivo gtm_plan <slug>` generates it and `requivo docs <slug>` offers it alongside the
+  session's other documents. It names a chosen set of actions, not a ranking (#600's discipline);
+  states what it deliberately excludes, projected from the model's `exclusions` (#599); states the
+  resource envelope it assumed and where each element came from, slot or assumption (#603); and
+  carries its decision thresholds as typed `Threshold` items, not sentences (#604). It generates
+  from a saved model, saves with its source revision, and goes stale when a slot it consumes moves
+  — the same staleness path every artifact takes. `requivo docs`'s menu and `--all` now narrow to
+  the session's own perimeter, so a go-to-market session is never offered a software-only document
+  type it cannot produce (and vice versa).
+- Added `artifact_type_not_owned` (#609), a structured, 409-classified error for a generation
+  call naming a real artifact type its session's perimeter does not produce — the CLI refuses
+  it cleanly (no traceback) and Requivo Web returns a normal error page rather than the 500 a
+  bare `ValueError` used to produce on an ordinary click. The session page's own document list
+  narrows to what the session's own perimeter can actually produce, so it is never offered a
+  button that would hit this refusal in the first place.
+
+- Added `perimeter:` to a golden request block in `fixtures/golden/requests.md` (#621) — it names
+  which installed perimeter (#608) the request's discovery call runs under, and defaults to
+  `software` when the line is absent, so every request written before this change is unchanged
+  byte-for-byte. `golden_run.py` threads it through to the discovery call, and the captured
+  `.runs.json` envelope now records which perimeter it ran under, on the same footing `model`
+  (#515) already does.
+- Added a refusal to `golden_diff.py`: a baseline and a candidate captured under different
+  perimeters are never diffed, because a slot id means a different thing in each schema. It names
+  both perimeters, says it cannot compare, and moves no verdict — the same shape as a lens that
+  could not look — rather than risk diffing slot ids that mean different things in each.
+- Added `expand-into-new-segment` to `fixtures/golden/requests.md`, the one go-to-market request in
+  the fixed set, with no committed baseline yet.
+
+### Changed
+
+- Requivo Web's waiting copy now states the measured wait (#236): "Usually one to two minutes" beside the buttons that start a discovery, and "Usually under two minutes" beside the ones that write a document, chosen from timed real runs (three first discoveries, six generators) recorded in `fixtures/ledger/2026-10-01.md` and checked against it by `test_documented_costs_and_durations_are_the_measured_ones`. It replaces "usually under a minute", which was reasoned rather than timed and which two of the three discoveries outlasted.
+
+- What a run costs is now measured rather than estimated (#252). `docs/providers.md` carries a per-command table copied from the `API USAGE` blocks of one real run of every paid verb on 2026-10-01, committed verbatim with the command, commit, model and conditions in `fixtures/ledger/2026-10-01.md`, and the README states the result before the first paid command: a first discovery came to $0.06–$0.14, all seven documents from one model to $0.54. The old figures were arithmetic over a four-characters-per-token estimate and undercounted, output most of all. `test_documented_costs_and_durations_are_the_measured_ones` fails when a dollar figure in either file is not one the capture supports, or when the rate table moves past the date the capture was priced at.
+
+- The terminal scan set in `tests/test_render_untrusted_output.py` now covers `api/` and fails when a `src/requivo/` subpackage is neither scanned nor named exempt (#590).
+
+- The interactive loops (`requivo discover` and `requivo run`) now ask their questions **one at a
+  time** instead of printing the whole batch first: each question gets its own prompt, carrying the
+  understanding slot it targets, and the per-turn checkpoint renders between batches. At most four
+  questions are asked before the answers are compiled and sent as a single turn; the surplus a turn
+  produced is not carried, because the next turn re-derives its questions against the updated model
+  (#592).
+- `requivo discover --once`, `requivo answer`, `requivo status` and `requivo demo` are unchanged —
+  they still print the full `PRIORITY QUESTIONS` block, because nobody is at a prompt to be asked
+  one at a time (#592).
+- The Claude Code `/requivo:run` skill follows the same cadence (#592).
+
+- A generated decision brief now compresses before it proposes: `next_steps` and `opportunities`
+  are the smallest set the model's own established constraints (deadline, budget, regulatory,
+  dependencies) let the client fund together, not everything defensible. An option that is
+  reasonable on its own but does not survive that cut is named in `exclusions` — #599's typed
+  model item, populated by a generator for the first time — with the reason and the constraint
+  slot it rests on, rather than silently added as a lower-priority extra with no cut line. A
+  model whose candidates all fit excludes nothing, the same "a forced challenge is worse than
+  none" rule `brief.md` already applies to `challenges` (#600).
+
+- `DiscoveryService.claim_and_ground`'s return value is now a `ClaimAndGround` NamedTuple (`meta`,
+  `grounding`, `cards`, `routing`) rather than a bare tuple, so a fact added to it later costs an
+  attribute rather than another break for every caller that unpacks (#601).
+- Compatibility: compatible - `claim_and_ground` first appears in this release (#593), so no released
+  caller ever unpacked an earlier shape; within this release it went from three positional values to
+  four before becoming the NamedTuple. Read the return by attribute, not by position, going forward.
+
+- Recorded that Requivo's scope is the job, not the artifact type: the product serves the decisions
+  a PM, solutions engineer or builder's job is made of, through several **perimeters** sharing one
+  engine, rather than only the software-scoping decision structure it implements today
+  (`decision: the-job-not-the-artifact-type`). The README's opening promise now says a session can
+  start from your own half-formed idea and not only from a client or stakeholder request, and
+  `docs/requirements-model.md` names the perimeter/Core split the existing model sits inside (#605).
+
+- `docs/product-validation.md` now records which of the four moments a run actually tested
+  (discovery, resumption, change impact, trust), with an explicit "not tested" state instead of a
+  blank cell; adds a fourth request shape outside the software-scoping fit, with its pass condition
+  stated as an honest boundary statement rather than a good document; and names where a completed
+  run is kept (`requivo-lab/corpus/`) and why it is never this repository. The numeric-benchmark
+  refusal is unchanged (#606).
+
+- `confidence` gains a fourth value, `testable`: a slot the engine or the user marks unknowable
+  until something is tried, carrying `test_plan` (what would settle it, required or the slot is
+  refused). It does not block readiness — a named test still to run is compatible with "precise
+  enough to build from" — and `requivo status` shows it as its own state, never folded into a
+  confirmed fact or a plain open question. Settling one (a test result folded back in) is an
+  ordinary model change and propagates through `requivo impact` like any other (#610).
+- `explicit` now means the requester can actually commit to the fact, not just that they typed it
+  confidently. With no client (a solo builder describing their own idea), only their own intent
+  qualifies — what they want, will build, will spend; their unconfirmed belief about the world is
+  graded `inferred` or `testable` instead, never `explicit`. The rule is stated in
+  each perimeter's `model_schema.json` `confidence` block and restated in `engine.md`, and
+  `docs/requirements-model.md` records it as the model's own semantics (#611).
+- A decision taken while a slot it rests on was `testable`, against a test that has since returned,
+  is now flagged by `requivo impact` as *derived from thinner evidence than exists now, worth
+  re-reading* — the same treatment `empty` and `inferred` already got. Re-planning a test (changing
+  a slot's `test_plan` and nothing else) counts as a material change, so artifacts that read it are
+  marked stale rather than staying quietly fresh (#610).
+
+- `CLAUDE.md` is rewritten as the rules and the map, under a ceiling in `tests/lean_budget.toml`:
+  each invariant is one line naming its test, the checklists moved to `docs/extending.md` and to
+  jit-context path rules that fire when the file they concern is edited, and every story stays on
+  the tracker. Four ceilings join the lean ratchet (src/ docstring maxima, decision record length,
+  CLAUDE.md length), and `decision: the-tree-records-the-rule` now lets a citation name a test
+  file as well as a test function, which is the lever #555 identified and did not pull (#627,
+  tranche 1 of 5).
+
+- `docs/decisions/`, the manual pages in `docs/` and the prose in `scripts/` now state the rule and
+  point at the tracker for the story (#627, tranche 5 of 5). The 22 decision records are rewritten to
+  Context / Decision / What breaking it cost / Alternatives with every slug and issue number kept
+  (2,294 lines to 996); the manual pages drop what CLAUDE.md, a decision record or a sibling page
+  already says, and correct sections that still described landed work as future (4,839 to 3,765);
+  `scripts/` prose share falls from 41.2% to 19.5% (3,614 lines to 2,640) with every module's AST
+  identical once docstrings are stripped. `docs/compatibility.md` is unchanged. The decision-record
+  ceiling in `tests/lean_budget.toml` drops to 84 lines, and `scripts/` gains four ceilings of its own.
+
+- The prose in `src/` now states the rule and points at the tracker for the story (#627, tranche 2):
+  9,173 docstring and comment lines became 2,625, and `src/` prose share fell from 44.6% to 18.7%.
+  Behaviour is unchanged: with docstrings stripped, every module's AST is identical to the one before
+  the cut, and the ceilings in `tests/lean_budget.toml` were lowered to the new measurement.
+
+- The prose in `tests/` now states the rule and points at the tracker for the story (#627, tranche 3):
+  10,534 docstring and comment lines became 3,477, every test docstring is at most two lines, and
+  the meta-guard estate went from 4,597 lines to 2,761. Five guard files are gone with the prose they
+  guarded: `test_cost_claims.py` (dollar figures in docs), `test_doc_images.py` (screenshot digests;
+  `scripts/shoot_doc_images.py --check` still answers the question), and the three empty stubs
+  `test_boundaries.py`, `test_encoding.py`, `test_narrative_references.py` (their citations now name
+  `test_source_form.py`, whose reference guard accepts a test file as well as a test function). No test
+  outside the estate changed: with docstrings stripped every module's AST is identical to the one before
+  the cut, and the collected test ids are identical. The ceilings in `tests/lean_budget.toml` were
+  lowered to the new measurement.
+
+- The code in `tests/` is cut from 22,724 lines to 14,614 and from 148 modules to 78: one file per
+  subject, one shared fakes module, and tests that asserted one rule on several inputs parametrised
+  (#627, tranche 4). Every behaviour a deleted or merged test pinned is still pinned by a named
+  survivor, every test `CLAUDE.md` names still exists, and the ceilings in `tests/lean_budget.toml`
+  were lowered to the new measurement (test-to-product ratio 1.68x, largest module 700 lines).
+
+### Fixed
+
+- `golden_run` retries a call once after a transport failure and, when a request still fails, keeps its completed runs in `<slug>.partial.json` under a `partial` marker that `golden_diff` reports as not re-captured, instead of discarding them (#557; the streaming half shipped in #638).
+
+- `run` and `docs` preserve session-existence errors instead of treating unreadable storage as an absent session and starting discovery or generating documents for another session (#589).
+- Compatibility: compatible - the incorrectly routed unreadable-session case now stops at exit 1 before provider calls or writes; valid requests and readable-session behavior are unchanged.
+
+- `requivo doctor` checks each installed perimeter's schema and prints its own slot count or load error, rather than showing only software's schema health (#623).
+- Compatibility: compatible - adds `perimeters.schemas` to `doctor --json`; existing schema and perimeter-discovery fields and command exit behavior are unchanged.
+
+- Two discoveries of the same request started at once can no longer settle it under a perimeter nobody chose: while the first is still judging which perimeter the request needs, a second is refused with `session_locked` before it pays for anything, instead of reading the unfinished claim as a decision and reasoning under the default perimeter (#626).
+
+- Preserve permission-denied session and file errors on Python 3.14 instead of treating them as absent during routing, listing, migration, and containment checks (#636).
+
+- A provider reply that takes longer than a minute no longer fails with "Anthropic API unavailable" behind a VPN, corporate proxy or NAT gateway that cuts idle connections: every model call now streams, so bytes flow while the model writes, and a connection lost mid-reply is the same clean, recorded failure as any other transport error (#638).
+
+- A JSON reply whose string value contains a code fence (an SQL snippet, an API payload, a Gherkin block) is no longer cut at that fence: the reply is read as JSON first, and only an outer fence or surrounding prose is stripped, so a legitimate reply no longer costs three paid attempts and a `ProviderOutputError` (#646).
+
+- `requivo session import` of an archive whose member data is corrupt (a bad CRC or a damaged deflate stream) now refuses it as an unreadable archive, in the human and `--json` forms, instead of ending in a traceback; nothing is imported (#647).
+
+- An apply now writes its new revision and the stale flags of the artifacts it invalidated in one `session.json` write, so a process that dies mid-apply can no longer leave revision N on disk with those artifacts still marked fresh (#648).
+- Compatibility: compatible - `SessionRepository.save_revision` gains an optional `stale=` keyword, which `FileSessionRepository` implements; a third-party backing written without it keeps working unchanged, the services detecting its absence and flagging in a second write as before, and the conformance suite skips its one new case for such a backing.
+
+- A decision brief or a go-to-market plan can no longer have a heading forged into its Web view by a
+  newline in the provider's free text: every summary, risk, open-decision, problem, solution,
+  cost-driver, scope-implication and next-step line is flattened, as #599 already did for decisions
+  and challenges (#655).
+- `session import` refuses an archive with an encrypted member or an unsupported compression method
+  as `unreadable_archive`, instead of ending in a traceback, the same as a corrupt member since #647
+  (#655).
+
 ## [3.3.0] - 2026-09-14
 
 ### Added
@@ -5804,7 +6089,8 @@ robustness holes that real input exposes were closed, and the regression lens an
   generators (PRD, user stories, estimate, acceptance criteria, delivery epic with GitHub/GitLab
   exports), and the MIT license.
 
-[Unreleased]: https://github.com/jbkkz/requivo/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/jbkkz/requivo/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/jbkkz/requivo/releases/tag/v3.4.0
 [3.3.0]: https://github.com/jbkkz/requivo/releases/tag/v3.3.0
 [3.2.0]: https://github.com/jbkkz/requivo/releases/tag/v3.2.0
 [3.1.0]: https://github.com/jbkkz/requivo/releases/tag/v3.1.0
