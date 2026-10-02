@@ -12,6 +12,49 @@ fragments in `changelog.d/` are the material to summarize from.
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-10-02
+
+### Highlights
+
+- `requivo mcp serve` exposes the HTTP API's resource operations to MCP hosts over stdio, and `examples/n8n/` ships three importable n8n workflows.
+- An installed `requivo` now reads the `.env` of the directory it runs from, or of the named workspace, and never one from a parent directory.
+- The per-call output ceiling is raised from 16,000 to 32,000 tokens, so a rich request has room to finish.
+- A go-to-market session is no longer read through the software perimeter, and slot values can no longer forge a heading in the brief or the plan.
+- `--port` outside 0-65535 and a `context --list` with selectors are refused as usage errors; a correction to 3.4.0's stated provider-call count is recorded under Fixed.
+
+### Added
+
+- `examples/n8n/` ships three importable n8n workflows (email intake, reply to answer, epic to GitHub issues) with a README, over the CLI's machine reads only (#437).
+
+- `requivo mcp serve`: a stdio MCP server whose tools are a one-to-one projection of the HTTP API's resource operations, called in-process on the same services (#438). Keyless tools need no key, the paid ones keep the services' pre-payment gates, and it needs no extra. See `docs/mcp.md`.
+
+### Changed
+
+- The per-call output ceiling (`MAX_OUTPUT_TOKENS`) is raised from 16,000 to 32,000 tokens (#256). A reply cut at the ceiling is refused whole after being paid for, so a rich multi-feature request now has room to finish; the worst case one call can bill doubles with it. The streaming half of #256 shipped with #638.
+
+### Fixed
+
+- Correction, 2026-10-02, to the released 3.4.0 entry on first-discovery cost (#601): it said the `uncovered`-grounding path "also writes a missing context card, makes four" provider calls. No card-writing code exists yet (#598 is open), so the `uncovered` path makes the same calls as any other first discovery without `--context` and `--perimeter`: at most three (the routing judgment, the grounding judgment, then the turn). The 3.4.0 section below is left as released.
+
+- A first discovery's in-flight guard now also covers the slug a claim lands on when the base name is held by a different request (#656), so a concurrent discovery on the suffixed name is refused instead of settling the session.
+
+- An unreadable lock root now refuses with `session_unreadable` naming the lock root instead of an invalid-slug error naming the slug (#657).
+
+- A go-to-market session is no longer read through the software perimeter (#659): an apply over a fully confirmed model reports ready, a `gtm_plan` saved from a superseded revision is born stale, and `artifact save` refuses a type the session's perimeter does not produce (`artifact_type_not_owned`).
+
+- A slot value and an opportunity's module names are now flattened to one line in the decision brief and the go-to-market plan, so a newline followed by `#` can no longer forge a heading in the Web view; and the Claude Code `run` skill no longer says the first discovery writes a missing context card (#593 judges the domain, writing the card is #598) (#660).
+
+- Describe every CLI option in help, using shared `--json` wording and adding the missing `artifact show --type` description (#662).
+
+- `requivo context --list` now refuses `--context`/`--cards` and `--session` instead of silently ignoring them (#664).
+
+- `requivo web` and `requivo api serve` now reject a `--port` outside 0-65535 with a usage error (exit 2) instead of a traceback from `bind()` (#665).
+- Compatibility: compatible - `--port` values outside 0-65535 moved from an uncaught `OverflowError` (exit 1) to an argparse usage error (exit 2); no correct invocation was on that path (#665).
+
+- `artifact show` reports the standard session-not-found error when the session does not exist (#666).
+
+- A pip- or uv-installed `requivo` now reads the `.env` of the directory it runs from, as the CLI help and the missing-key message always said; it searched from its own install directory and never found it (#687). Exactly one `.env` is read, never one in a parent directory: the workspace's (`--workspace DIR` or `REQUIVO_WORKSPACE`), otherwise the current directory's own; it fills only what the environment does not already set.
+
 ## [3.4.0] - 2026-10-01
 
 ### Highlights
@@ -6089,7 +6132,8 @@ robustness holes that real input exposes were closed, and the regression lens an
   generators (PRD, user stories, estimate, acceptance criteria, delivery epic with GitHub/GitLab
   exports), and the MIT license.
 
-[Unreleased]: https://github.com/jbkkz/requivo/compare/v3.4.0...HEAD
+[Unreleased]: https://github.com/jbkkz/requivo/compare/v3.4.1...HEAD
+[3.4.1]: https://github.com/jbkkz/requivo/releases/tag/v3.4.1
 [3.4.0]: https://github.com/jbkkz/requivo/releases/tag/v3.4.0
 [3.3.0]: https://github.com/jbkkz/requivo/releases/tag/v3.3.0
 [3.2.0]: https://github.com/jbkkz/requivo/releases/tag/v3.2.0
