@@ -210,6 +210,9 @@ def _cmd_context(a, client) -> None:
     so a caller cannot quietly widen the selection the model was built against."""
     from requivo.core.context import load_context
     if a.list:
+        if a.cards is not None or a.session is not None:
+            raise InvalidModelError(
+                "--list prints every card; it does not take --cards/--context or --session")
         for c in available_cards():
             print(c)
         return

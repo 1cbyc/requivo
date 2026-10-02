@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from _credentials import _no_credentials
-from _fakes import deny_access, run_cli, run_cli_exit, run_cli_json, seed_session
+from _fakes import deny_access, run_cli, run_cli_exit, run_cli_fails, run_cli_json, seed_session
 
 from conftest import symlink_or_skip
 from requivo.core import persistence as store
@@ -620,6 +620,18 @@ def test_lock_matching_is_not_claimed_when_the_session_list_itself_could_not_be_
 
 
 # ── context ─────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("selector", [("--cards", "b2b-platform"), ("--session", "narrow")])
+def test_context_list_refuses_selectors_instead_of_ignoring_them(selector):
+    code, error = run_cli_fails(["context", "--list", *selector])
+    assert code == 1
+    assert "--list prints every card" in error
+
+
+def test_context_list_without_a_selector_still_lists_every_card(monkeypatch):
+    monkeypatch.setattr(det, "available_cards", lambda: ["first", "second"])
+    assert run_cli(["context", "--list"]) == "first\nsecond\n"
 
 
 def test_context_can_be_asked_for_by_session():
