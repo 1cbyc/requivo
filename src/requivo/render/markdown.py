@@ -39,12 +39,15 @@ def _line(text: str) -> str:
     return " ".join(text.split())
 
 
-_BLOCK_MARKER = re.compile(r"^(?:#{1,6}(?:\s|$)|[>*+-](?:\s|$)|\d+[.)](?:\s|$)|\||`{3,}|~{3,}|<)", re.MULTILINE)
+_BLOCK_MARKER = re.compile(
+    r"^( {0,3})(#{1,6}(?:\s|$)|[>*+-](?:\s|$)|\d+[.)](?:\s|$)|\||`{3,}|~{3,}|<)",
+    re.MULTILINE,
+)
 
 
 def _block_text(text: str) -> str:
     """Escape every provider-authored line that begins with a Markdown block marker (#686)."""
-    return _BLOCK_MARKER.sub(r"\\\g<0>", text)
+    return _BLOCK_MARKER.sub(r"\1\\\2", text)
 
 
 def _block_line(text: str) -> str:

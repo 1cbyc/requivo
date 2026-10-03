@@ -110,7 +110,7 @@ def _revision(revision: int, priced_as_of: str) -> RevisionRecord:
 
 def test_every_generated_document_neutralizes_provider_authored_block_markers():
     """#686: a field already beginning with a marker can forge structure without containing a newline."""
-    forged = "# FORGED\n## SECOND"
+    forged = "# FORGED\n   ## SECOND"
     model = out({"problem": slot(80, "explicit", "high", forged)})
     model.summary.scope = forged
     documents = [
