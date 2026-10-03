@@ -12,18 +12,32 @@ from _fakes import StubProvider, full_model, out, printed, slot
 
 from requivo.cli import converse
 from requivo.core.contracts import (
+    PRD,
+    AcceptanceCriteria,
     Brief,
     Challenge,
     ContextJudgment,
     DesignDecision,
     EngineOutput,
+    Epic,
     EstimateDraft,
+    GoToMarketPlan,
     Leverage,
     Opportunity,
+    ReleaseNotes,
     Stories,
 )
 from requivo.core.dependencies import propagate, thinner_evidence
 from requivo.core.persistence import ArtifactStatus, RevisionRecord
+from requivo.render.html import markdown_to_html
+from requivo.render.markdown import (
+    brief_markdown,
+    criteria_markdown,
+    epic_markdown,
+    gtm_plan_markdown,
+    prd_markdown,
+    release_markdown,
+)
 from requivo.render.terminal import (
     docs_menu_rows,
     render_brief,
@@ -92,6 +106,41 @@ def _revision(revision: int, priced_as_of: str) -> RevisionRecord:
                          previous_revision=revision - 1 or None, usage_input_tokens=1000, usage_output_tokens=200,
                          usage_cache_read_tokens=0, usage_cache_write_tokens=0, usage_rate_per_mtok=(2.0, 10.0),
                          usage_priced_as_of=priced_as_of)
+
+
+def test_every_generated_document_neutralizes_provider_authored_block_markers():
+    """#686: a field already beginning with a marker can forge structure without containing a newline."""
+    forged = "# FORGED\n## SECOND"
+    model = out({"problem": slot(80, "explicit", "high", forged)})
+    model.summary.scope = forged
+    documents = [
+        brief_markdown(model, Brief(problem=forged, solution=forged, complexity="low")),
+        gtm_plan_markdown(model, GoToMarketPlan(plan=[forged], rationale=forged)),
+        prd_markdown(PRD(
+            title=forged, summary=forged, problem=forged, goals=[forged], users=[forged],
+            in_scope=[forged], out_of_scope=[forged], workflow=[forged], business_rules=[forged],
+            permissions=[forged], integrations=[forged], edge_cases=[forged],
+            acceptance_criteria=[forged], assumptions=[forged], open_questions=[forged], risks=[forged],
+        )),
+        criteria_markdown(AcceptanceCriteria(title=forged, features=[{
+            "name": forged, "scenarios": [{"id": forged, "title": forged, "when": forged,
+                                               "given": [forged], "then": [forged]}],
+        }], open_questions=[forged])),
+        epic_markdown(Epic(
+            title=forged, milestone=forged, goal=forged, business_value=forged,
+            in_scope=[forged], out_of_scope=[forged], issues=[{
+                "id": forged, "title": forged, "description": forged, "labels": [forged],
+            }], open_questions=[forged],
+        )),
+        release_markdown(ReleaseNotes(
+            title=forged, version=forged, summary=forged, highlights=[forged],
+            known_limitations=[forged], notes=[forged],
+        )),
+    ]
+    for document in documents:
+        html = markdown_to_html(document)
+        assert "FORGED" in html and "SECOND" in html, "neutralizing must not discard provider text"
+        assert "<h1>FORGED</h1>" not in html and "<h2>SECOND</h2>" not in html, document
 
 
 # `render_*` functions in `render/terminal.py` that render no model-authored prose.
