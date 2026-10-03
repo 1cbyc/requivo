@@ -260,7 +260,8 @@ class SessionService:
         return Store(workspace_root())
 
     def _ensure_canonical(self, slug: str) -> None:
-        """Before any mutation: migrate a legacy `out/<slug>/` session in place on first write."""
+        """Before any mutation or its dry run: refuse a missing session, naming an `out/`-only one
+        for `requivo session migrate`. It never migrates or writes anything itself."""
         self.repo.ensure_writable(slug)
 
     # ── creation ──────────────────────────────────────────────────────────────
@@ -330,7 +331,7 @@ class SessionService:
         return None
 
     def ensure_canonical(self, slug: str) -> None:
-        """Public form of the migrate-on-first-mutation guard."""
+        """Public form of the write-route existence guard."""
         self._ensure_canonical(slug)
 
     # ── deletion ─────────────────────────────────────────────────────────────
@@ -548,8 +549,10 @@ class SessionService:
     # ── the write path ──────────────────────────────────────────────────────────
     def diff(self, slug: str, proposal: dict | str, *, require_complete: bool = True) -> UpdateResult:
         """Dry run of `update_model`: what *would* change, nothing written. `revision` is the one that would be created."""
-        current = self.load_model(slug) if self.exists(slug) else None
-        perimeter = resolve_perimeter(self.meta(slug).perimeter) if self.exists_meta(slug) else DEFAULT_PERIMETER
+        self._ensure_canonical(slug)  # the apply's own gate, `out/` hint included: never a phantom first apply (#678)
+        meta = self.meta(slug)
+        current = self.load_model(slug) if meta.current_revision > 0 else None
+        perimeter = resolve_perimeter(meta.perimeter)
         new = validate_proposal(proposal, require_complete=require_complete, current=current,
                                 perimeter=perimeter)
         return self._plan(slug, current, new, apply=False, perimeter=perimeter)
